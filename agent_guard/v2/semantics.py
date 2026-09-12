@@ -30,7 +30,42 @@ def chain_for(grant, grants):
     return []
 
 
+def validate_state(policy, state):
+    """Policy-relative structural invariants, separate from grant liveness."""
+    p, s = policy.to_dict(), state.to_dict()
+    roots = {g["id"]: g for g in p["roots"]}
+    grants = {g["id"]: g for g in s["grants"]}
+    check(all(grants.get(rid) == root for rid, root in roots.items()), "state_roots_mismatch")
+    for g in s["grants"]:
+        check(g["issuer"] in p["principals"] and g["subject"] in p["principals"] and
+              g["operation"] in p["operations"], "invalid_state_grant")
+        chain = chain_for(g, s["grants"])
+        check(bool(chain) and chain[0] in p["roots"] and
+              all(attenuates(a, b) for a, b in zip(chain, chain[1:])), "invalid_state_grant_chain")
+    check(set(s["revoked"]) <= set(grants), "unknown_revoked_grant")
+    check(set(s["active_labels"]) <= set(p["labels"]), "unknown_state_label")
+    expected = {r for r, spec in p["resources"].items() if spec["kind"] == "object"}
+    check(set(s["objects"]) == expected, "state_resources_mismatch")
+    for rid, obj in s["objects"].items():
+        check(set(p["resources"][rid]["labels"]) <= set(obj["labels"]) <= set(p["labels"]),
+              "invalid_object_labels")
+    check(not s["facts"], "unsupported_state_facts")
+    total = 0
+    for actor, counts in s["counts"].items():
+        check(actor in p["principals"], "unknown_count_principal")
+        for op, count in counts.items():
+            check(op in p["operations"], "unknown_count_operation")
+            limit = p["budgets"].get(actor, {}).get(op)
+            check(limit is None or count <= limit, "state_budget_exceeded")
+            total += count
+    check(total == s["step"], "state_count_mismatch")
+
+
 def query(policy, state, action, identity, now):
+    from .model import ident, natural
+    ident(identity)
+    natural(now)
+    validate_state(policy, state)
     p, s, a = policy.to_dict(), state.to_dict(), action.to_dict()
     effect = p["operations"].get(a["operation"], "unknown")
     spec = p["resources"].get(a["resource"])
@@ -96,7 +131,10 @@ def evaluate(q):
     common = (q["supported"] and q["actor"] == q["identity"] and q["actor"] in q["principals"] and
               (q["budget"] is None or q["count"] < q["budget"]) and not any(
                   d["actor"] == q["actor"] and d["operation"] in {q["operation"], q["actionOp"]} and
-                  covers(d["resource"], d["prefix"], q["resource"]) for d in q["denies"]))
+                  (covers(d["resource"], d["prefix"], q["resource"]) or
+                   (q["effect"] == "delegate" and q["child"] is not None and
+                    covers(q["child"]["resource"], q["child"]["prefix"], d["resource"])))
+                  for d in q["denies"]))
     authority = any(permitted_chain(q, chain) for chain in q["chains"])
     if q["effect"] == "delegate":
         c = q["child"]
@@ -127,7 +165,7 @@ def transition(policy, state, action, identity, now, result):
         fields(result, {"value"})
         check(digest(result["value"]) == s["objects"][a["resource"]]["value_hash"], "read_value_mismatch")
     elif effect == "write":
-        check(result == {"written": True}, "write_result_mismatch")
+        check(digest(result) == digest({"written": True}), "write_result_mismatch")
         obj = s["objects"][a["resource"]]
         obj["value_hash"] = digest(a["parameters"]["value"])
         obj["labels"] = sorted(set(obj["labels"]) | set(s["active_labels"]))
@@ -136,12 +174,14 @@ def transition(policy, state, action, identity, now, result):
         item = {"id": digest({"domain": s["domain"], "step": s["step"], "action": a}),
                 "actor": a["actor"], "resource": a["resource"], "payload": a["parameters"]["payload"],
                 "labels": s["active_labels"]}
-        check(result == {"status": "queued", "intent": item}, "queue_result_mismatch")
+        check(digest(result) == digest({"status": "queued", "intent": item}), "queue_result_mismatch")
         s["outbox_hash"] = digest({"previous": s["outbox_hash"], "intent": item})
     elif effect == "delegate":
-        check(result == {"delegated": q["child"]["id"]}, "delegation_result_mismatch")
+        check(digest(result) == digest({"delegated": q["child"]["id"]}), "delegation_result_mismatch")
         s["grants"].append(q["child"])
     elif effect == "revoke":
-        check(result == {"revoked": q["target"]["id"]}, "revocation_result_mismatch")
+        check(digest(result) == digest({"revoked": q["target"]["id"]}), "revocation_result_mismatch")
         s["revoked"] = sorted(s["revoked"] + [q["target"]["id"]])
-    return AuthorizationState(s)
+    after = AuthorizationState(s)
+    validate_state(policy, after)
+    return after

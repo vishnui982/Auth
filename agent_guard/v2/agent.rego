@@ -70,11 +70,18 @@ authority if {
     revoker
 }
 
+denial_overlaps(d) if { covers(d.resource, d.prefix, input.resource) }
+denial_overlaps(d) if {
+    input.effect == "delegate"
+    input.child != null
+    covers(input.child.resource, input.child.prefix, d.resource)
+}
+
 denied if {
     some d in input.denies
     d.actor == input.actor
     d.operation in {input.operation, input.actionOp}
-    covers(d.resource, d.prefix, input.resource)
+    denial_overlaps(d)
 }
 
 budget_ok if { input.budget == null }

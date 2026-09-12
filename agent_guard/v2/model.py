@@ -85,6 +85,7 @@ class Action(Snapshot):
 
 class Policy(Snapshot):
     def __init__(self, value):
+        value = loads(canonical(value))
         fields(value, {"version", "principals", "administrators", "labels", "roots", "denies",
                        "operations", "resources", "budgets"})
         check(type(value["version"]) is int and value["version"] == 2)
@@ -113,6 +114,8 @@ class Policy(Snapshot):
         check(type(value["denies"]) is list and len(value["denies"]) <= 128)
         for d in value["denies"]:
             fields(d, {"actor", "operation", "resource", "prefix"})
+            ident(d["actor"])
+            check(type(d["operation"]) is str)
             check(d["actor"] in value["principals"] and d["operation"] in value["operations"])
             resource(d["resource"])
             check(type(d["prefix"]) is bool)
@@ -127,6 +130,7 @@ class Policy(Snapshot):
 
 class AuthorizationState(Snapshot):
     def __init__(self, value):
+        value = loads(canonical(value))
         fields(value, {"version", "domain", "step", "grants", "revoked", "active_labels",
                        "objects", "counts", "facts", "outbox_hash"})
         check(type(value["version"]) is int and value["version"] == 2)
@@ -161,7 +165,9 @@ class AuthorizationState(Snapshot):
 def initial_state(policy, domain, values):
     p = policy.to_dict()
     expected = {r for r, spec in p["resources"].items() if spec["kind"] == "object"}
-    check(set(values) == expected, "initial_resources_mismatch")
+    check(type(values) is dict and set(values) == expected, "initial_resources_mismatch")
+    for value in values.values():
+        check(len(canonical(value)) <= 16384, "value_too_large")
     return AuthorizationState({"version": 2, "domain": domain, "step": 0,
         "grants": p["roots"], "revoked": [], "active_labels": [], "facts": [], "counts": {},
         "objects": {r: {"labels": sorted(p["resources"][r]["labels"]), "value_hash": digest(v)}

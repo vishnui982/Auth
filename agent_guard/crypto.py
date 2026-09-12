@@ -24,6 +24,8 @@ def verify(envelope, key: Ed25519PublicKey):
         signature = base64.b64decode(envelope["signature"], validate=True)
         if len(signature) != 64:
             raise ValueError("signature length")
+        if base64.b64encode(signature).decode("ascii") != envelope["signature"]:
+            raise ValueError("noncanonical signature encoding")
         key.verify(signature, DOMAIN + canonical(envelope["payload"]))
     except (InvalidSignature, ValueError, TypeError, binascii.Error) as exc:
         raise GuardError("invalid_signature") from exc

@@ -9,7 +9,7 @@ from agent_guard.canonical import canonical, digest, loads
 from agent_guard.crypto import public_pem, sign, verify
 from agent_guard.errors import GuardError
 from .audit import PAYLOAD, require, verify_history
-from .model import Action, AuthorizationState, initial_state
+from .model import Action, AuthorizationState, initial_state, natural
 from .semantics import query, transition
 
 
@@ -79,21 +79,48 @@ class Gateway:
 
     def _check_materialized(self, db):
         s = self.state(db).to_dict()
+        stored_trust = loads(db.execute("SELECT value FROM meta WHERE key='trust'").fetchone()[0])
+        require(digest(stored_trust) == digest(self.trust), "stored_trust_mismatch")
         objects = {r: digest(loads(v)) for r, v in db.execute("SELECT resource,value FROM objects")}
         require(objects == {r: x["value_hash"] for r, x in s["objects"].items()}, "resource_state_mismatch")
         outbox_hash = digest([])
-        for row in db.execute("SELECT intent FROM outbox ORDER BY rowid"):
-            outbox_hash = digest({"previous": outbox_hash, "intent": loads(row[0])})
+        for rid, raw in db.execute("SELECT id,intent FROM outbox ORDER BY rowid"):
+            intent = loads(raw)
+            require(rid == intent["id"], "outbox_id_mismatch")
+            outbox_hash = digest({"previous": outbox_hash, "intent": intent})
         require(outbox_hash == s["outbox_hash"], "outbox_state_mismatch")
         rows = {n: (loads(c), used) for n, c, used in db.execute("SELECT nonce,certificate,consumed FROM issued")}
         expected = {}
-        for row in db.execute("SELECT bundle FROM events ORDER BY sequence"):
-            b = loads(row[0]); p = b["receipt"]["payload"]
+        previous, state_hash, last_time = None, self.genesis.hash, 0
+        for i, (sequence, event_hash, raw) in enumerate(
+                db.execute("SELECT sequence,hash,bundle FROM events ORDER BY sequence"), 1):
+            b = loads(raw)
+            p = verify(b["receipt"], self.key.public_key())
+            require(sequence == p["sequence"] == i and event_hash == digest(b["receipt"]) and
+                    p["previous"] == previous, "stored_history_mismatch")
+            require(p["before_hash"] == state_hash == digest(b["before"]) and
+                    p["after_hash"] == digest(b["after"]) and
+                    p["action_hash"] == digest(b["action"]) and
+                    p["result_hash"] == digest(b["result"]), "stored_event_binding_mismatch")
+            require(p["time"] >= last_time, "nonmonotonic_history_time")
             if p["kind"] == "authorization":
+                require(p["nonce"] not in expected, "duplicate_nonce")
                 expected[p["nonce"]] = (b["receipt"], 0)
             else:
+                require(p["kind"] == "execution" and
+                        expected.get(p["nonce"]) == (b["authorization"], 0) and
+                        p["authorization_hash"] == digest(b["authorization"]), "nonce_state_mismatch")
                 expected[p["nonce"]] = (b["authorization"], 1)
+            previous, state_hash, last_time = event_hash, p["after_hash"], p["time"]
+        require(state_hash == digest(s), "stored_state_mismatch")
         require(rows == expected, "nonce_state_mismatch")
+
+    def _now(self, db):
+        now = int(self.clock())
+        natural(now, 2**53 - 31)
+        last = db.execute("SELECT bundle FROM events ORDER BY sequence DESC LIMIT 1").fetchone()
+        require(last is None or now >= loads(last[0])["receipt"]["payload"]["time"], "clock_moved_backwards")
+        return now
 
     def _record(self, db, action, actor, before, after, result, q, decision, nonce, expires, authorization=None):
         last = db.execute("SELECT sequence,hash FROM events ORDER BY sequence DESC LIMIT 1").fetchone()
@@ -116,7 +143,7 @@ class Gateway:
 
     def _authorize(self, db, action, actor):
         state = self.state(db)
-        q = query(self.policy, state, action, actor, int(self.clock()))
+        q = query(self.policy, state, action, actor, self._now(db))
         decision = self.engines.decide(q)
         bundle = self._record(db, action, actor, state, state, None, q, decision,
                               secrets.token_hex(32), q["now"] + 30)
@@ -129,7 +156,7 @@ class Gateway:
         p = verify(certificate, self.key.public_key())
         fields(p, PAYLOAD)
         before = self.state(db)
-        now = int(self.clock())
+        now = self._now(db)
         require(p["kind"] == "authorization" and p["decision"] == "allow" and p["version"] == 2, "invalid_authorization")
         require(p["actor"] == actor == action.to_dict()["actor"] and p["action_hash"] == action.hash, "action_or_actor_mismatch")
         require(p["domain"] == self.domain and p["policy_hash"] == self.policy.hash and
@@ -187,4 +214,5 @@ class Gateway:
 
     def export(self):
         with self.transaction() as db:
+            self._check_materialized(db)
             return [loads(row[0]) for row in db.execute("SELECT bundle FROM events ORDER BY sequence")]

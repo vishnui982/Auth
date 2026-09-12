@@ -45,8 +45,11 @@ class Engines:
     def decide(self, q):
         # Correctness-first: rehash the actual executable and rules before every
         # check, rather than continuing after an on-disk replacement.
-        if any(self.file_hash(path) != self.pins[name] for name, path in self.files.items()):
-            raise GuardError("verification_engine_changed", 503)
+        try:
+            if any(self.file_hash(path) != self.pins[name] for name, path in self.files.items()):
+                raise GuardError("verification_engine_changed", 503)
+        except OSError as exc:
+            raise GuardError("verification_engine_unavailable", 503) from exc
         reference = evaluate(q)
         opa = self._run([str(self.opa), "eval", "--stdin-input", "--strict-builtin-errors",
                          "--format=json", "--data", str(self.rego), "data.agent_guard.v2.decision"], q)
@@ -60,7 +63,8 @@ class Engines:
                     raise ValueError()
                 if not all(type(x) is str for x in result["nextLabels"]):
                     raise ValueError()
-                result["nextLabels"] = sorted(set(result["nextLabels"]))
+                if result["nextLabels"] != sorted(set(result["nextLabels"])):
+                    raise ValueError()
         except (KeyError, IndexError, TypeError, ValueError) as exc:
             raise GuardError("invalid_engine_result", 503) from exc
         if reference != opa or reference != lean:

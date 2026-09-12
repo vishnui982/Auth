@@ -2,6 +2,8 @@
 
 **Parts 2 and 3 are implemented as protocol V2.** The core now combines persistent authorization state, attenuated delegation, cascading revocation, inherited information-flow labels, budgets, OPA, a compiled Lean evaluator, and a replayable signed history.
 
+The robustness review closes a broad-delegation denial bypass, makes Lean label transitions match runtime state exactly, strengthens the authorization proof to a declarative equivalence, and hardens signed-evidence and persistent-state validation. See [the review findings and regression coverage](docs/ROBUSTNESS_REVIEW.md).
+
 Every live decision must agree across **OPA + the executable checked by Lean + the Python reference**. Missing engines, malformed responses or disagreement stop execution. Auditors verify the actual state transition as well as the signature. See [the V2 specification](docs/V2_SPEC.md) and [the exact proof boundary](docs/PROOFS.md).
 
 ## Run Parts 2 and 3

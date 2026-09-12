@@ -20,7 +20,7 @@ from .model import Action, AuthorizationState, Policy
 
 def initialize(directory, engines, policy_data=None, values=None):
     directory = Path(directory)
-    policy = Policy(policy_data or example_policy())
+    policy = Policy(example_policy() if policy_data is None else policy_data)
     directory.mkdir(parents=True, mode=0o700, exist_ok=False)
     key = Ed25519PrivateKey.generate()
     write_file(directory / "signing-key.pem", private_pem(key), True)

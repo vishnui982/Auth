@@ -69,6 +69,9 @@ def delegate(grant, actor="agent1"):
 
 
 def test_actual_lean_proofs_are_checked():
+    built = subprocess.run([str(ROOT / "tools/bin/lake"), "build"], cwd=ROOT / "proof",
+                           capture_output=True, text=True)
+    assert built.returncode == 0, built.stdout + built.stderr
     result = subprocess.run([str(ROOT / "tools/bin/lake"), "env", "lean", "Check.lean"],
                              cwd=ROOT / "proof", capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
@@ -351,3 +354,170 @@ def test_http_v2_identity_and_resource_certificate_boundary(gate):
         server.shutdown()
         server.server_close()
         thread.join()
+
+
+@pytest.mark.parametrize("denied_op", ["data.read", "authority.delegate"])
+def test_broad_delegation_cannot_hide_a_denied_descendant(engines, tmp_path, denied_op):
+    p = example_policy()
+    p["denies"] = [{"actor": "agent1", "operation": denied_op,
+                    "resource": "document:project/payroll", "prefix": False}]
+    g = Gateway.create(tmp_path / "deny.sqlite", Policy(p), Ed25519PrivateKey.generate(),
+                       engines, VALUES, clock=lambda: 1000)
+    # The grant names the parent scope, so a check of just the action resource misses the denial.
+    denied(g, delegate(child(resource="document:project", prefix=True)))
+    # Narrowing to a disjoint sibling remains useful and permitted.
+    allowed(g, delegate(child()))
+    allowed(g, act(actor="agent2"))
+
+
+def test_lean_returns_exact_canonical_labels_and_history_composes(gate):
+    for rid in ["document:project/payroll", "document:project/payroll", "document:project/public"]:
+        event = allowed(gate, act(rid=rid))
+        q = query(gate.policy, AuthorizationState(event["before"]), Action.from_dict(event["action"]),
+                  "agent1", 1000)
+        # Inspect raw output: the engine wrapper must not repair a mismatching transition.
+        raw = gate.engines._run([str(gate.engines.lean)], q)
+        assert raw == evaluate(q)
+        assert raw["nextLabels"] == event["after"]["active_labels"] == ["PII"]
+    denied(gate, act("message.send", "sink:external", {"payload": "derived"}))
+    verify_history(gate.export(), genesis=gate.genesis, **gate.verification_args())
+
+
+@pytest.mark.parametrize("effect", ["write", "send"])
+def test_signed_result_cannot_substitute_boolean_for_integer(gate, effect):
+    if effect == "write":
+        a = act("data.write", "document:project/summary", {"value": "text"})
+        event = allowed(gate, a)
+        event["result"]["written"] = 1
+        error = "write_result_mismatch"
+    else:
+        a = act("message.send", "sink:external", {"payload": {"amount": 1}})
+        event = allowed(gate, a)
+        event["result"]["intent"]["payload"]["amount"] = True
+        error = "queue_result_mismatch"
+    event["receipt"]["payload"]["result_hash"] = digest(event["result"])
+    event["receipt"] = sign(event["receipt"]["payload"], gate.key)
+    with pytest.raises(GuardError, match=error):
+        verify_event(event, **gate.verification_args())
+
+
+def test_live_snapshot_cannot_drop_labels_even_when_object_values_match(gate):
+    allowed(gate, act(rid="document:project/payroll"))
+    with gate.transaction() as db:
+        s = gate.state(db).to_dict()
+        s["active_labels"] = []
+        db.execute("UPDATE meta SET value=? WHERE key='state'", (canonical(s).decode(),))
+    with pytest.raises(GuardError, match="stored_state_mismatch"):
+        gate.act(act("message.send", "sink:external", {"payload": "private"}), "agent1")
+    with gate.transaction() as db:
+        assert db.execute("SELECT COUNT(*) FROM outbox").fetchone()[0] == 0
+
+
+@pytest.mark.parametrize("column,value", [("sequence", 100), ("hash", "0" * 64)])
+def test_materialized_event_index_must_match_signed_history(gate, column, value):
+    allowed(gate, act())
+    with gate.transaction() as db:
+        db.execute(f"UPDATE events SET {column}=? WHERE sequence=2", (value,))
+    for attempt in [lambda: gate.act(act(), "agent1"), gate.export,
+                    lambda: Gateway(gate.path, gate.policy, gate.key, gate.engines,
+                                    clock=gate.clock, trust=gate.trust)]:
+        with pytest.raises(GuardError, match="stored_history_mismatch"):
+            attempt()
+
+
+def test_clock_rollback_does_not_resurrect_expired_authority(gate):
+    gate.clock = lambda: 4102444800
+    denied(gate, act())
+    gate.clock = lambda: 1000
+    with pytest.raises(GuardError, match="clock_moved_backwards"):
+        gate.act(act(), "agent1")
+    assert len(gate.export()) == 1
+
+
+def test_auditor_rejects_signed_backwards_clock(gate):
+    gate.authorize(act(), "agent1")
+    gate.clock = lambda: 1001
+    gate.authorize(act(), "agent1")
+    history = gate.export()
+    event = history[-1]
+    p = event["receipt"]["payload"]
+    p["time"], p["expires"] = 999, 1029
+    p["query_hash"] = digest(query(gate.policy, AuthorizationState(event["before"]), act(), "agent1", 999))
+    event["receipt"] = sign(p, gate.key)
+    with pytest.raises(GuardError, match="nonmonotonic_history_time"):
+        verify_history(history, genesis=gate.genesis, **gate.verification_args())
+
+
+@pytest.mark.parametrize("mutation,error", [
+    (lambda s: s["objects"].pop("document:project/public"), "state_resources_mismatch"),
+    (lambda s: s["objects"]["document:project/payroll"].update(labels=[]), "invalid_object_labels"),
+    (lambda s: s.update(active_labels=["UNKNOWN"]), "unknown_state_label"),
+    (lambda s: s.update(step=1), "state_count_mismatch"),
+    (lambda s: s.update(revoked=["missing"]), "unknown_revoked_grant"),
+    (lambda s: s["grants"].pop(), "state_roots_mismatch"),
+])
+def test_semantics_rejects_policy_inconsistent_state(gate, mutation, error):
+    s = snap(gate).to_dict()
+    mutation(s)
+    with pytest.raises(GuardError, match=error):
+        query(gate.policy, AuthorizationState(s), act(), "agent1", 1000)
+
+
+@pytest.mark.parametrize("labels", [["PII", "PII"], ["PII", "CONFIDENTIAL"]])
+def test_engine_output_must_already_be_canonical(gate, monkeypatch, labels):
+    run = gate.engines._run
+    monkeypatch.setattr(gate.engines, "_run", lambda command, data:
+                        {"allow": True, "nextLabels": labels}
+                        if command[0] == str(gate.engines.lean) else run(command, data))
+    with pytest.raises(GuardError, match="invalid_engine_result"):
+        gate.act(act(), "agent1")
+    assert gate.export() == []
+
+
+def test_noncanonical_base64_cannot_change_a_valid_receipt_hash(gate):
+    event = allowed(gate, act())
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+    sig = event["receipt"]["signature"]
+    # A 64-byte signature has four unused pad bits in its final base64 character.
+    index = alphabet.index(sig[-3])
+    event["receipt"]["signature"] = sig[:-3] + alphabet[index + 1] + "=="
+    with pytest.raises(GuardError, match="invalid_signature"):
+        verify_event(event, **gate.verification_args())
+
+
+def test_empty_history_still_checks_domain_anchor(gate):
+    args = gate.verification_args()
+    args["domain"] = "other-domain"
+    with pytest.raises(GuardError, match="domain_mismatch"):
+        verify_history([], genesis=gate.genesis, **args)
+
+
+def test_maximum_depth_witness_and_intermediate_revocation(engines):
+    p = example_policy()
+    p["roots"][0]["remaining"] = 16
+    p["principals"] += [f"delegate{i}" for i in range(1, 17)]
+    policy = Policy(p)
+    state = initial_state(policy, "depth-domain", VALUES)
+    issuer, parent = "agent1", "read-project"
+    for i in range(1, 17):
+        g = child(id=f"grant{i}", issuer=issuer, subject=f"delegate{i}", parent=parent,
+                  remaining=16-i, resource="document:project", prefix=True)
+        action = delegate(g, issuer)
+        q = query(policy, state, action, issuer, 1000)
+        if i in (1, 8, 16):
+            assert engines.decide(q)["allow"]
+        state = transition(policy, state, action, issuer, 1000, {"delegated": g["id"]})
+        issuer, parent = g["subject"], g["id"]
+    a = act(actor="delegate16")
+    assert engines.decide(query(policy, state, a, "delegate16", 1000))["allow"]
+    s = state.to_dict()
+    s["revoked"] = ["grant8"]
+    assert not engines.decide(query(policy, AuthorizationState(s), a, "delegate16", 1000))["allow"]
+
+
+def test_initial_value_bound_is_checked_before_creating_store(tmp_path, engines):
+    values = {**VALUES, "document:project/public": "x" * 16384}
+    path = tmp_path / "large.sqlite"
+    with pytest.raises(GuardError, match="value_too_large"):
+        Gateway.create(path, Policy(example_policy()), Ed25519PrivateKey.generate(), engines, values)
+    assert not path.exists()
