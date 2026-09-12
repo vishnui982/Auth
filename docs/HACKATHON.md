@@ -8,9 +8,9 @@ For actual signed evidence, set up Python 3.11+, install `.[test]`, run `python3
 
 If port 8787 is occupied, append `--port 8788`. Ctrl-C stops the server. Every verified launcher invocation creates fresh state; it never overwrites an audit history. The printed output location contains the evidence, trust and checkpoint files. Keep the state directory private.
 
-## Three-minute autoplay pitch
+## Manual walkthrough
 
-Click **Play the 3-minute pitch**. Nine scenes run for 20 seconds each, with request, check, evidence and outcome phases. The presentation hides the large header so the demonstration fills the screen. Pause for judge questions; resume continues from the same point. Back, Next and the scene markers let you jump. Restart returns to the beginning. Switching browser tabs pauses the pitch automatically.
+Use **Next action** and **Previous** to move through nine examples. Each shows its complete result immediately. The Action menu jumps to any example. Expand **Policy & evidence** for the rule and verification details. Nothing advances automatically.
 
 Speak alongside the on-screen explanation:
 
@@ -24,7 +24,7 @@ Speak alongside the on-screen explanation:
 8. **2:20–2:40 — Admit uncertainty.** “A lost acknowledgement does not mean failure. ASAP reports unknown and avoids a duplicate send.”
 9. **2:40–3:00 — Prove the outcome.** “The signed recipient record confirms the original effect. Authorize. Enforce. Prove.”
 
-The animation explains a recorded run, not a live Lean proof construction. In verified mode it uses real recorded evidence. The **Run with OPA + Lean** button inside the action explorer generates a fresh complete scenario. Open **Policies & proofs** for the underlying sources and formal scope. Use **Explore all 19 actions & evidence** for judge questions.
+The walkthrough shows recorded outcomes, not live proof construction. In verified mode it uses real recorded evidence. The **Run with OPA + Lean** button inside the action explorer generates a fresh complete scenario. Open **Policies & proofs** for the underlying sources and formal scope. Use **All actions & details** for judge questions.
 
 ## Honest claims
 

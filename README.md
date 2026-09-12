@@ -12,7 +12,7 @@ From a fresh checkout, launch the complete presentation with **no dependencies o
 python3 tools/present.py
 ```
 
-Open **http://127.0.0.1:8787**. Click **Play the 3-minute pitch** for nine narrated-on-screen scenes with animated request → check → evidence → outcome phases. Pause, resume, restart, or jump between scenes. Expand the action explorer for all 19 steps. The website includes a simple guide, developer instructions, the actual OPA/Lean source library, and a project overview with this README. The simple guide also includes an interactive information-flow example.
+Open **http://127.0.0.1:8787**. Use **Next action** and **Previous** to move through nine clear examples. Each shows the request, the check, and the result. Choose any example from the Action menu, expand Policy & evidence for its rule, or open all 19 detailed actions. The website includes a simple guide, developer instructions, the actual OPA/Lean source library, and a project overview with this README. The simple guide also includes an interactive information-flow example.
 
 This quick mode is **illustrative**: it does not run OPA/Lean or fabricate signed evidence. For a real run, complete the supported Python 3.11+ package/toolchain setup below, then use:
 
@@ -26,7 +26,7 @@ The launcher creates a fresh output directory automatically. The verified websit
 python3 tools/present.py --build output/hackathon-site
 ```
 
-Open the exported `index.html` directly; the complete UI and source library are self-contained. The [presentation script](docs/HACKATHON.md) gives a three-minute walkthrough and explains what to claim on stage.
+Open the exported `index.html` directly; the complete UI and source library are self-contained. The [presentation script](docs/HACKATHON.md) gives a suggested walkthrough and explains what to claim on stage.
 
 
 
