@@ -3,9 +3,9 @@ requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "agent-guard"
+name = "asap-agent-security"
 version = "0.2.0"
-description = "Stateful proof-carrying authorization with OPA and a checked Lean kernel"
+description = "ASAP: Agent Security and Access Protocol with OPA and a checked Lean kernel"
 requires-python = ">=3.11"
 dependencies = ["cryptography>=46.0.7,<47"]
 
@@ -13,6 +13,7 @@ dependencies = ["cryptography>=46.0.7,<47"]
 test = ["pytest>=8,<10"]
 
 [project.scripts]
+asap = "agent_guard.cli:main"
 agent-guard = "agent_guard.cli:main"
 agent-guard-v2 = "agent_guard.v2.cli:main"
 

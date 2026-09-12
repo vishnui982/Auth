@@ -23,6 +23,7 @@ from .http import HTTPTransport, make_http_service
 from .mcp import MCPServer, MCPTransport
 from .resource import ResourceVerifier
 from .runtime import AgentGuard, Denied, DirectTransport
+from .presentation import render_site
 
 
 def product_policy():
@@ -160,13 +161,25 @@ def run_demo(output, engines):
         verified = verify_product(evidence, trust, engines, checkpoint)
         for name, value in [('evidence', evidence), ('trust', trust), ('checkpoint', checkpoint), ('story', story)]:
             write_json(output/(name+'.json'), value)
-        template = Path(__file__).with_name('ui.html').read_text()
-        (output/'index.html').write_text(template.replace('__STORY__', json.dumps(story).replace('<', '\\u003c')))
-        (output/'technical.html').write_text(Path(__file__).with_name('technical.html').read_text())
+        render_site(output, story, product_policy(), verified=True)
         print(f'VERIFIED {verified}\nUI: {(output/"index.html").resolve()}', flush=True)
     finally:
         server.shutdown(); server.server_close(); thread.join()
     return output
+
+
+
+def validate_run_request(headers, port):
+    """Only same-origin JSON requests may create a fresh local demo run."""
+    expected = f'127.0.0.1:{port}'
+    for name in ('Host', 'Content-Type', 'Content-Length'):
+        require(len(headers.get_all(name, [])) == 1, 'invalid_demo_headers')
+    require(headers['Host'] == expected, 'invalid_demo_host')
+    require(headers['Content-Type'] == 'application/json', 'invalid_demo_media_type')
+    require(not headers.get('Transfer-Encoding'), 'invalid_demo_headers')
+    origins = headers.get_all('Origin', [])
+    require(not origins or origins == ['http://' + expected], 'invalid_demo_origin')
+    require(headers.get('Sec-Fetch-Site') in (None, 'same-origin', 'none'), 'invalid_demo_origin')
 
 
 def main(argv=None):
@@ -216,9 +229,11 @@ def main(argv=None):
                     if self.path != '/api/run':
                         self.send_error(404); return
                     try:
+                        validate_run_request(self.headers, self.server.server_port)
                         size = int(self.headers.get('Content-Length', '0'))
                         require(0 <= size <= 1024, 'invalid_demo_request')
-                        self.rfile.read(size)
+                        self.connection.settimeout(5)
+                        require(len(self.rfile.read(size)) == size, 'incomplete_demo_request')
                         with run_lock:
                             runs = output/'runs'
                             runs.mkdir(mode=0o700, exist_ok=True)

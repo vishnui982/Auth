@@ -1,6 +1,34 @@
-# Verifiable Authorization for AI Agents
+# ASAP · Agent Security and Access Protocol
+
+**Agent Security and Access Protocol (ASAP)** puts a verifiable permission boundary between AI agents and their tools. The existing `agent_guard` Python imports and CLI commands remain compatible.
 
 Tools execute agent actions only when they can verify that the exact action passed the security policy.
+
+## Hackathon quick start
+
+From a fresh checkout, launch the complete presentation with **no dependencies or API keys** (Python 3.9+):
+
+```sh
+python3 tools/present.py
+```
+
+Open **http://127.0.0.1:8787**. Click **Play the 3-minute pitch** for nine narrated-on-screen scenes with animated request → check → evidence → outcome phases. Pause, resume, restart, or jump between scenes. Expand the action explorer for all 19 steps. The website includes a simple guide, developer instructions, the actual OPA/Lean source library, and a project overview with this README. The simple guide also includes an interactive information-flow example.
+
+This quick mode is **illustrative**: it does not run OPA/Lean or fabricate signed evidence. For a real run, complete the supported Python 3.11+ package/toolchain setup below, then use:
+
+```sh
+.venv/bin/python tools/present.py --verified
+```
+
+The launcher creates a fresh output directory automatically. The verified website replays real signed events and offers a button to execute a fresh scenario. Use `--port 8788` if the default port is occupied. To export an offline presentation into a new directory:
+
+```sh
+python3 tools/present.py --build output/hackathon-site
+```
+
+Open the exported `index.html` directly; the complete UI and source library are self-contained. The [presentation script](docs/HACKATHON.md) gives a three-minute walkthrough and explains what to claim on stage.
+
+
 
 Run the local product demo with the existing toolchain, without model API keys:
 
@@ -16,7 +44,7 @@ Open **http://127.0.0.1:8787** for the interactive story: inherited payroll rest
 
 The [integration guide](docs/PRODUCT_DEMO.md) covers the small `guard.protect(...)` API, adapters, signed delivery evidence and the exact mock-service boundary. V2 still reports send intents as **queued**; a separate recipient observation confirms only the local mock effect. The detailed existing documentation follows.
 
-# Agent Guard: stateful authorization with checked evidence
+# ASAP: stateful authorization with checked evidence
 
 **Parts 2 and 3 are implemented as protocol V2.** The core now combines persistent authorization state, attenuated delegation, cascading revocation, inherited information-flow labels, budgets, OPA, a compiled Lean evaluator, and a replayable signed history.
 
@@ -26,7 +54,7 @@ Every live decision must agree across **OPA + the executable checked by Lean + t
 
 ## Run Parts 2 and 3
 
-The tools are installed in this workspace. On a fresh checkout, run:
+On a fresh checkout, install the supported Python 3.11+ package and verification toolchain:
 
 ```sh
 python3 -m venv .venv
