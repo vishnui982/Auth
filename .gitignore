@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+tmp/
+runtime/
+runtime-v2/
+output/
+*.sqlite*
+*.pem
+.DS_Store
+tools/bin/
+tools/lean-*/
+proof/.lake/
+proof/lake-manifest.json

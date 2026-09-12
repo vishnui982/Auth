@@ -1,0 +1,9 @@
+{
+  "actor": "owner",
+  "operation": "authority.revoke",
+  "parameters": {
+    "grant_id": "read-project"
+  },
+  "resource": "authority:grants",
+  "version": 2
+}

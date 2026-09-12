@@ -1,0 +1,34 @@
+{
+  "opa_darwin_amd64": {
+    "url": "https://github.com/open-policy-agent/opa/releases/download/v1.20.2/opa_darwin_amd64",
+    "digest": "sha256:e9b8d205db1aeaa6ec350855087b7d7fc014e7728b65cdf822464ee59e63f601"
+  },
+  "opa_darwin_arm64": {
+    "url": "https://github.com/open-policy-agent/opa/releases/download/v1.20.2/opa_darwin_arm64",
+    "digest": "sha256:54e7008e696d39e8e4f96594e2b71bcbe45fd9a4f838102bcf1240638bf3fbe1"
+  },
+  "opa_linux_amd64_static": {
+    "url": "https://github.com/open-policy-agent/opa/releases/download/v1.20.2/opa_linux_amd64_static",
+    "digest": "sha256:69da5179ee403d10fa11bab6cfb4ffb0d23dba5f9b682fa977db772a1da5670f"
+  },
+  "opa_linux_arm64_static": {
+    "url": "https://github.com/open-policy-agent/opa/releases/download/v1.20.2/opa_linux_arm64_static",
+    "digest": "sha256:431bed5a365578241ab06c7cc1c7d0cdff8c11dcbc6f12c3488590deb8b8d66d"
+  },
+  "lean-4.33.1-darwin.tar.zst": {
+    "url": "https://github.com/leanprover/lean4/releases/download/v4.33.1/lean-4.33.1-darwin.tar.zst",
+    "digest": "sha256:93c475c1600360df35471bf6ed1c7fe118d7fb42be6915ead67724f7ad58dfaf"
+  },
+  "lean-4.33.1-darwin_aarch64.tar.zst": {
+    "url": "https://github.com/leanprover/lean4/releases/download/v4.33.1/lean-4.33.1-darwin_aarch64.tar.zst",
+    "digest": "sha256:88c45aad985b5d2a8d925fe10bd1296bd35f66f408480ab182d3facccd065a9d"
+  },
+  "lean-4.33.1-linux.tar.zst": {
+    "url": "https://github.com/leanprover/lean4/releases/download/v4.33.1/lean-4.33.1-linux.tar.zst",
+    "digest": "sha256:890afd185370f85666025b883914ab4f4b339136f8c96167b69cfb62aecaf235"
+  },
+  "lean-4.33.1-linux_aarch64.tar.zst": {
+    "url": "https://github.com/leanprover/lean4/releases/download/v4.33.1/lean-4.33.1-linux_aarch64.tar.zst",
+    "digest": "sha256:f7353a8b2a8741c84558523e450556f9a1c45e3cafcf54399ce68c6a24c55f07"
+  }
+}

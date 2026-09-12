@@ -1,0 +1,138 @@
+{
+  "version": 2,
+  "principals": [
+    "owner",
+    "agent1",
+    "agent2"
+  ],
+  "administrators": [
+    "owner"
+  ],
+  "labels": [
+    "PII",
+    "CONFIDENTIAL"
+  ],
+  "roots": [
+    {
+      "id": "read-project",
+      "issuer": "owner",
+      "subject": "agent1",
+      "operation": "data.read",
+      "resource": "document:project",
+      "prefix": true,
+      "remaining": 2,
+      "expires": 4102444800,
+      "parent": null
+    },
+    {
+      "id": "write-project",
+      "issuer": "owner",
+      "subject": "agent1",
+      "operation": "data.write",
+      "resource": "document:project",
+      "prefix": true,
+      "remaining": 1,
+      "expires": 4102444800,
+      "parent": null
+    },
+    {
+      "id": "write-settings",
+      "issuer": "owner",
+      "subject": "agent1",
+      "operation": "data.write",
+      "resource": "kv:settings",
+      "prefix": true,
+      "remaining": 0,
+      "expires": 4102444800,
+      "parent": null
+    },
+    {
+      "id": "send-external",
+      "issuer": "owner",
+      "subject": "agent1",
+      "operation": "message.send",
+      "resource": "sink:external",
+      "prefix": false,
+      "remaining": 1,
+      "expires": 4102444800,
+      "parent": null
+    },
+    {
+      "id": "send-internal",
+      "issuer": "owner",
+      "subject": "agent1",
+      "operation": "message.send",
+      "resource": "sink:internal",
+      "prefix": false,
+      "remaining": 1,
+      "expires": 4102444800,
+      "parent": null
+    },
+    {
+      "id": "child-send",
+      "issuer": "owner",
+      "subject": "agent2",
+      "operation": "message.send",
+      "resource": "sink:external",
+      "prefix": false,
+      "remaining": 0,
+      "expires": 4102444800,
+      "parent": null
+    }
+  ],
+  "denies": [],
+  "operations": {
+    "data.read": "read",
+    "data.write": "write",
+    "message.send": "send",
+    "authority.delegate": "delegate",
+    "authority.revoke": "revoke"
+  },
+  "resources": {
+    "document:project/public": {
+      "kind": "object",
+      "labels": [],
+      "accepts": []
+    },
+    "document:project/payroll": {
+      "kind": "object",
+      "labels": [
+        "PII"
+      ],
+      "accepts": []
+    },
+    "document:project/summary": {
+      "kind": "object",
+      "labels": [],
+      "accepts": []
+    },
+    "kv:settings/theme": {
+      "kind": "object",
+      "labels": [],
+      "accepts": []
+    },
+    "sink:external": {
+      "kind": "sink",
+      "labels": [],
+      "accepts": []
+    },
+    "sink:internal": {
+      "kind": "sink",
+      "labels": [],
+      "accepts": [
+        "PII",
+        "CONFIDENTIAL"
+      ]
+    },
+    "authority:grants": {
+      "kind": "authority",
+      "labels": [],
+      "accepts": []
+    }
+  },
+  "budgets": {
+    "agent1": {
+      "data.write": 3
+    }
+  }
+}

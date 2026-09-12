@@ -1,0 +1,10 @@
+{
+  "document:project/public": "Public example",
+  "document:project/payroll": {
+    "synthetic_payroll": 100
+  },
+  "document:project/summary": "",
+  "kv:settings/theme": {
+    "theme": "light"
+  }
+}

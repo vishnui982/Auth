@@ -1,0 +1,11 @@
+{
+  "actor": "agent1",
+  "operation": "data.write",
+  "parameters": {
+    "value": {
+      "summary": "Derived data"
+    }
+  },
+  "resource": "document:project/summary",
+  "version": 2
+}

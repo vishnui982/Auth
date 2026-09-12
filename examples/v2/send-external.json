@@ -1,0 +1,11 @@
+{
+  "actor": "agent1",
+  "operation": "message.send",
+  "parameters": {
+    "payload": {
+      "message": "Derived data"
+    }
+  },
+  "resource": "sink:external",
+  "version": 2
+}

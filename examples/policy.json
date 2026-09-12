@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "rules": [
+    {"id":"read-welcome","effect":"allow","actor":"agent1","operation":"read","resource":"document:public/welcome"},
+    {"id":"read-draft","effect":"allow","actor":"agent1","operation":"read","resource":"document:drafts/note"},
+    {"id":"write-draft","effect":"allow","actor":"agent1","operation":"write","resource":"document:drafts/note"},
+    {"id":"protect-payroll","effect":"deny","actor":"agent1","operation":"read","resource":"document:secret/payroll"}
+  ]
+}

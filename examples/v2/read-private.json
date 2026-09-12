@@ -1,0 +1,7 @@
+{
+  "actor": "agent1",
+  "operation": "data.read",
+  "parameters": {},
+  "resource": "document:project/payroll",
+  "version": 2
+}

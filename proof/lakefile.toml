@@ -1,0 +1,10 @@
+name = "agent_guard_kernel"
+version = "0.2.0"
+defaultTargets = ["guard-kernel"]
+
+[[lean_lib]]
+name = "AgentGuard"
+
+[[lean_exe]]
+name = "guard-kernel"
+root = "Main"
