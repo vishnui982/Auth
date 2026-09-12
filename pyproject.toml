@@ -21,6 +21,7 @@ include = ["agent_guard*"]
 
 [tool.setuptools.package-data]
 "agent_guard.v2" = ["*.rego"]
+"agent_guard.integration" = ["*.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

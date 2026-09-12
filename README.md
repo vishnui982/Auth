@@ -1,3 +1,21 @@
+# Verifiable Authorization for AI Agents
+
+Tools execute agent actions only when they can verify that the exact action passed the security policy.
+
+Run the local product demo with the existing toolchain, without model API keys:
+
+```sh
+.venv/bin/python -m agent_guard product-demo --output output/my-product-demo --serve
+```
+
+Open **http://127.0.0.1:8787** for the interactive story: inherited payroll restrictions, protected email and REST tools, blocked bypass/substitution/replay, scoped delegation, cascading revocation, MCP interoperability and uncertain-delivery reconciliation. Choose a new output directory for each run. The generated `index.html` also opens directly without a server.
+
+```sh
+.venv/bin/python -m agent_guard product-demo --verify output/my-product-demo
+```
+
+The [integration guide](docs/PRODUCT_DEMO.md) covers the small `guard.protect(...)` API, adapters, signed delivery evidence and the exact mock-service boundary. V2 still reports send intents as **queued**; a separate recipient observation confirms only the local mock effect. The detailed existing documentation follows.
+
 # Agent Guard: stateful authorization with checked evidence
 
 **Parts 2 and 3 are implemented as protocol V2.** The core now combines persistent authorization state, attenuated delegation, cascading revocation, inherited information-flow labels, budgets, OPA, a compiled Lean evaluator, and a replayable signed history.
