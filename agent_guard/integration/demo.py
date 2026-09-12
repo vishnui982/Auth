@@ -162,6 +162,7 @@ def run_demo(output, engines):
             write_json(output/(name+'.json'), value)
         template = Path(__file__).with_name('ui.html').read_text()
         (output/'index.html').write_text(template.replace('__STORY__', json.dumps(story).replace('<', '\\u003c')))
+        (output/'technical.html').write_text(Path(__file__).with_name('technical.html').read_text())
         print(f'VERIFIED {verified}\nUI: {(output/"index.html").resolve()}', flush=True)
     finally:
         server.shutdown(); server.server_close(); thread.join()
@@ -184,15 +185,54 @@ def main(argv=None):
             return 0
         output = run_demo(args.output, engines)
         if args.serve:
+            run_lock = threading.Lock()
+
             class UIHandler(SimpleHTTPRequestHandler):
+                def is_public_asset(self):
+                    if self.path in ('/', '/index.html', '/technical.html'):
+                        return True
+                    parts = self.path.split('/')
+                    return (len(parts) == 4 and parts[1] == 'runs' and parts[2].startswith('run-') and
+                            parts[3] in {'index.html', 'technical.html'} and
+                            (output/'runs'/parts[2]/parts[3]).is_file())
+
+                def send_json(self, status, value):
+                    body = canonical(value)
+                    self.send_response(status)
+                    self.send_header('Content-Type', 'application/json')
+                    self.send_header('Content-Length', str(len(body)))
+                    self.end_headers()
+                    self.wfile.write(body)
+
                 def do_GET(self):
-                    if self.path not in ('/', '/index.html'):
+                    if not self.is_public_asset():
                         self.send_error(404); return
                     super().do_GET()
                 def do_HEAD(self):
-                    if self.path not in ('/', '/index.html'):
+                    if not self.is_public_asset():
                         self.send_error(404); return
                     super().do_HEAD()
+                def do_POST(self):
+                    if self.path != '/api/run':
+                        self.send_error(404); return
+                    try:
+                        size = int(self.headers.get('Content-Length', '0'))
+                        require(0 <= size <= 1024, 'invalid_demo_request')
+                        self.rfile.read(size)
+                        with run_lock:
+                            runs = output/'runs'
+                            runs.mkdir(mode=0o700, exist_ok=True)
+                            for sequence in range(1, 10_000):
+                                candidate = runs/f'run-{sequence:04d}'
+                                if not candidate.exists():
+                                    break
+                            else:
+                                raise GuardError('demo_run_limit_reached')
+                            run_demo(candidate, engines)
+                            self.send_json(200, {'run': candidate.name, 'url': f'/runs/{candidate.name}/index.html'})
+                    except (GuardError, OSError, ValueError) as exc:
+                        self.send_json(400, {'error': str(exc)})
+
             server = ThreadingHTTPServer(('127.0.0.1', args.port), partial(UIHandler, directory=str(output)))
             print(f'Open http://127.0.0.1:{server.server_port} — Ctrl-C to stop.', flush=True)
             try:

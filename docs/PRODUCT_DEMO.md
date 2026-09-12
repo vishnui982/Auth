@@ -10,7 +10,7 @@ From the repository root with the existing virtualenv, OPA and Lean toolchain in
 .venv/bin/python -m agent_guard product-demo --output output/my-product-demo --serve
 ```
 
-Open `http://127.0.0.1:8787`. The command runs the story and then serves a read-only interactive playback. Choose a new output directory for each run; existing evidence is never overwritten. Omit `--serve` to finish after generating `index.html`, which also works when opened directly. The UI server exposes only the HTML report, never the private state directory.
+Open `http://127.0.0.1:8787`. The command runs the story and then serves the local demo lab. Choose a new output directory for each run; existing evidence is never overwritten. In the lab, **Run verified demo** executes the complete fixed local scenario again, writes it beneath the original output directory, and opens its fresh report. It does not execute text edited in the action inspector or accept arbitrary tool requests. Omit `--serve` to finish after generating `index.html`, which also works when opened directly; direct-file playback cannot rerun the scenario. The UI server exposes only `index.html` and `technical.html` reports, never a private state directory.
 
 Verify the signed evidence again in a separate process:
 
@@ -26,7 +26,7 @@ Agent A reads public information, reads payroll, and writes a derived summary. E
 
 Agent B initially lacks a grant to the summary. A narrow delegation enables the read, and parent revocation disables it. An MCP `tools/call` uses the same V2 authorization machinery. Finally, a simulated lost acknowledgement produces `unknown`; reconciliation reads the already recorded signed observation and confirms it without resending.
 
-The UI displays the principal, proposed action, three-way checker agreement, decision, active/derived labels, grant parent links, revocations, action/policy/state commitments, event status and predecessor hash. For bypass attempts rejected before evaluation it says “Not evaluated,” rather than inventing checker results. This is verified playback, not an interface to dispatch arbitrary tools.
+The demo lab displays the principal, an editable inspection copy of the proposed action, the fundamental policy conditions, three-way checker agreement, decision, active/derived labels, grant parent links, revocations, action/policy/state commitments, event status and predecessor hash. For bypass attempts rejected before evaluation it says “Not evaluated,” rather than inventing checker results. The technical-notes page describes the adapter and evidence boundary. The only executable UI control runs the complete fixed demo; the lab is not an interface for dispatching arbitrary tools.
 
 ## Integration API
 

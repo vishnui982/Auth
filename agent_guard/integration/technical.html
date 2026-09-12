@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent Guard · Technical Notes</title>
+<style>
+:root{color-scheme:dark;--bg:#08100e;--panel:#0c1a16;--ink:#e8f4ed;--muted:#9aada3;--faint:#65766d;--line:#254239;--green:#7de0ac;--cyan:#88d7f5;--red:#ff9b9b}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.6 system-ui,sans-serif}.bar{display:flex;justify-content:space-between;gap:16px;padding:18px clamp(20px,6vw,100px);border-bottom:1px solid var(--line);font:12px ui-monospace,monospace;letter-spacing:.1em}.bar a{color:var(--green);text-decoration:none}.wrap{max-width:1040px;margin:auto;padding:clamp(38px,7vw,88px) clamp(20px,6vw,72px)}.eyebrow,h2,code,.step-no,dt{font-family:ui-monospace,SFMono-Regular,Consolas,monospace}.eyebrow{font-size:11px;letter-spacing:.15em;color:var(--green)}h1{max-width:760px;margin:13px 0 22px;font-size:clamp(36px,6vw,68px);letter-spacing:-.045em;line-height:1.02;font-weight:500}h2{margin:50px 0 13px;font-size:14px;letter-spacing:.08em;color:var(--cyan)}p{max-width:760px;color:var(--muted)}.steps{margin-top:30px;border:1px solid var(--line)}.step{display:grid;grid-template-columns:72px 1fr;border-bottom:1px solid var(--line)}.step:last-child{border:0}.step-no{padding:20px;color:var(--green);background:#0b1d18;border-right:1px solid var(--line)}.step-body{padding:17px 20px}.step-body strong{display:block}.step-body span{display:block;color:var(--muted);font-size:14px;margin-top:3px}.rule-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:20px}.rule{padding:16px;border:1px solid var(--line);background:var(--panel)}.rule code{display:block;color:var(--green);font-size:12px}.rule p{margin:7px 0 0;font-size:14px}.boundary{margin-top:22px;padding:18px;border-left:2px solid var(--red);background:#1c1515;color:#e5c4c4}.boundary strong{font-family:ui-monospace,monospace}.chain{margin-top:20px;padding:18px;border:1px solid var(--line);background:var(--panel);font:13px/2 ui-monospace,monospace;color:var(--cyan);white-space:pre-wrap}@media(max-width:620px){.rule-grid{grid-template-columns:1fr}.step{grid-template-columns:52px 1fr}.step-no{padding:18px 12px}.bar{font-size:10px}}
+</style>
+</head>
+<body>
+<header class="bar"><span>AGENT GUARD / TECHNICAL NOTES</span><a href="index.html">← RETURN TO DEMO LAB</a></header>
+<main class="wrap">
+<div class="eyebrow">THE SECURITY MODEL</div>
+<h1>Authorization is evidence about one exact action.</h1>
+<p>Agent Guard does not decide whether a goal sounds reasonable. It authorizes a concrete action: a principal, operation, resource, and parameters. A protected resource executes only after it verifies the authorization against the request it actually received.</p>
+<section class="steps">
+<div class="step"><div class="step-no">01</div><div class="step-body"><strong>Normalize the tool request.</strong><span>An email, HTTP request, or MCP tool call becomes one canonical V2 Action. Destination, method, body, tool name, and actor are included.</span></div></div>
+<div class="step"><div class="step-no">02</div><div class="step-body"><strong>Reach three-way agreement.</strong><span>OPA/Rego, the compiled Lean evaluator, and the Python reference checker evaluate the same state transition. Missing output or disagreement fails closed.</span></div></div>
+<div class="step"><div class="step-no">03</div><div class="step-body"><strong>Issue signed authorization evidence.</strong><span>An allow certificate binds the action hash, policy hash, state hash, nonce, actor, evaluator manifest, and expiry. Permission to attempt is not proof of an effect.</span></div></div>
+<div class="step"><div class="step-no">04</div><div class="step-body"><strong>Verify at the receiving tool.</strong><span>The protected resource reconstructs an Action from the authenticated, actual request. Any substituted body, path, destination, actor, or stale state causes rejection.</span></div></div>
+<div class="step"><div class="step-no">05</div><div class="step-body"><strong>Commit effect and evidence together.</strong><span>For the controlled local mocks, nonce consumption, the mock effect, and its signed observation are written atomically. The delivery journal distinguishes authorized, dispatching, confirmed, rejected, and unknown.</span></div></div>
+</section>
+<h2>POLICY INVARIANTS</h2>
+<div class="rule-grid">
+<div class="rule"><code>DEFAULT_DENY</code><p>A missing rooted authority witness is a denial. The agent cannot create authority by claiming intent.</p></div>
+<div class="rule"><code>EXACT_ACTION_BINDING</code><p>Changing a recipient, request body, HTTP path, method, tool argument, or actor changes the action commitment.</p></div>
+<div class="rule"><code>INFORMATION_FLOW</code><p>Reading payroll activates <code>PAYROLL_PRIVATE</code>; derived data inherits it, and a destination must explicitly accept it.</p></div>
+<div class="rule"><code>ONE_TIME_EVIDENCE</code><p>The signed nonce is consumed by the protected resource. Replaying the same certificate cannot create another effect.</p></div>
+<div class="rule"><code>DELEGATION_SCOPE</code><p>Delegation is attenuated. It carries only the parent grant’s allowed operation, resource scope, expiry, and remaining delegation depth.</p></div>
+<div class="rule"><code>CASCADE_REVOCATION</code><p>Revoking a parent grant invalidates every descendant authority chain that depends on it.</p></div>
+</div>
+<h2>WHAT THE CHAIN MEANS</h2>
+<div class="chain">canonical Action
+        ↓ hash
+OPA + Lean + reference decision
+        ↓ signed authorization certificate
+protected resource verifies actual request
+        ↓ atomic mock effect + signed observation
+append-only event / delivery trace</div>
+<h2>BOUNDARY OF THIS DEMO</h2>
+<p class="boundary"><strong>Confirmed</strong> means the supplied local mock service recorded an effect and signed an observation. It does not claim SMTP delivery, an external payment, production network security, or arbitrary remote idempotency. The protocol core is unchanged by this product-demo layer.</p>
+</main>
+</body>
+</html>
